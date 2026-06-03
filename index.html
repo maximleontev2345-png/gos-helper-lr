@@ -1,0 +1,342 @@
+```html
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GOS HELPER</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background: #1a1a1a; 
+            margin: 0; 
+            height: 100vh; 
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 20px; opacity: 0.04; pointer-events: none; z-index: 0; }
+        .icon-mvd, .icon-fsb { width: 150px; height: 150px; background: #fff; -webkit-mask: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Emblem_of_the_MVD.svg') no-repeat center; mask: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Emblem_of_the_MVD.svg') no-repeat center; }
+        .icon-fsb { -webkit-mask: url('https://upload.wikimedia.org/wikipedia/commons/9/9f/FSB_logo.svg') no-repeat center; mask: url('https://upload.wikimedia.org/wikipedia/commons/9/9f/FSB_logo.svg') no-repeat center; }
+        .blue-header { background: #1e40af; }
+        .nav-tab { color: #9ca3af; cursor: pointer; transition: 0.2s; padding: 10px 0; flex: 1; text-align: center; }
+        .nav-tab.active { color: white; border-bottom: 2px solid #3b82f6; font-weight: bold; }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        
+        .highlight { color: #ef4444; font-weight: bold; }
+    </style>
+</head>
+<body class="text-white">
+
+    <!-- Водяные знаки -->
+    <div class="watermark"><div class="icon-mvd"></div><div class="icon-fsb"></div></div>
+
+    <!-- Всплывающий Тост -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-emerald-600 text-white px-4 py-2 rounded-full shadow-lg z-50 transition-all duration-300 opacity-0 pointer-events-none text-sm whitespace-nowrap">
+        ✅ Действие выполнено
+    </div>
+
+    <!-- Шапка -->
+    <div class="blue-header px-4 py-3 flex justify-between items-center z-20 relative shadow-md">
+        <div class="flex items-center gap-2 font-bold text-sm tracking-wide">
+            <span>⚖️</span> GOS HELPER 1.0
+        </div>
+        <div class="flex gap-4">
+            <button onclick="toggleSettings()" id="btn-settings" class="opacity-80 hover:opacity-100 text-lg transition-opacity">⚙️</button>
+        </div>
+    </div>
+
+    <!-- КОНТЕЙНЕР 1: ПРОСМОТР СПИСКА -->
+    <div id="view-mode" class="flex flex-col flex-1 z-10 relative overflow-hidden">
+        <!-- Вкладки -->
+        <div id="tabs" class="flex justify-between bg-[#1a1a1a]/95 text-xs font-medium border-b border-gray-800 shrink-0">
+            <span class="nav-tab active" data-cat="УК">УК</span>
+            <span class="nav-tab" data-cat="КоАП">КоАП</span>
+            <span class="nav-tab" data-cat="ФП">ФП</span>
+            <span class="nav-tab" data-cat="ПДД">ПДД</span>
+            <span class="nav-tab" data-cat="ФЗ">ФЗ</span>
+        </div>
+
+        <!-- Поиск -->
+        <div class="px-3 py-3 shrink-0">
+            <input type="text" id="searchInput" placeholder="Поиск статьи или термина..." 
+                   class="w-full bg-[#2a2a2a] text-gray-200 text-sm p-3 rounded-xl outline-none border border-gray-700 focus:border-blue-500 placeholder-gray-500 shadow-inner">
+        </div>
+
+        <!-- Список -->
+        <div id="articles-list" class="px-3 pb-4 space-y-2 flex-1 overflow-y-auto"></div>
+    </div>
+
+    <!-- КОНТЕЙНЕР 2: ЧТЕНИЕ СТАТЬИ -->
+    <div id="article-mode" class="hidden flex-col flex-1 z-20 relative overflow-hidden bg-[#1a1a1a]/98">
+        <div class="px-3 py-3 border-b border-gray-800 shrink-0">
+            <button onclick="closeArticle()" class="text-blue-400 text-sm font-bold flex items-center gap-2 bg-[#2a2a2a] hover:bg-[#333] px-4 py-2 rounded-lg transition-colors w-fit">
+                <span>←</span> Назад к списку
+            </button>
+        </div>
+        <div class="p-4 flex-1 overflow-y-auto">
+            <h2 id="article-title" class="text-white font-bold text-lg mb-4 leading-tight"></h2>
+            <div id="article-content" class="text-gray-300 text-sm leading-relaxed whitespace-pre-line mb-4"></div>
+            <div id="article-punishment" class="hidden mt-4 pt-4 border-t border-gray-800 text-sm">
+                <span class="text-red-400 font-bold">Наказание:</span>
+                <span id="article-punishment-text" class="text-gray-200 ml-1"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- КОНТЕЙНЕР 3: РЕДАКТОР (НАСТРОЙКИ) -->
+    <div id="settings-mode" class="hidden flex-col flex-1 z-20 relative overflow-hidden bg-[#1a1a1a]">
+        <div class="p-3 border-b border-gray-800 shrink-0 flex justify-between items-center bg-[#222]">
+            <span class="font-bold text-blue-400 text-sm">🛠️ Редактор Базы</span>
+        </div>
+        
+        <div class="p-3 flex-1 overflow-y-auto">
+            <div class="bg-[#2a2a2a] p-3 rounded-xl border border-gray-700 space-y-3 mb-4">
+                <div class="font-bold text-gray-400 text-xs uppercase tracking-wider" id="form-title">Новая статья</div>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-[10px] text-gray-500 mb-1 uppercase">Вкладка</label>
+                        <select id="edit-category" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg p-2 text-white text-xs outline-none">
+                            <option value="УК">УК</option>
+                            <option value="КоАП">КоАП</option>
+                            <option value="ФП">ФП</option>
+                            <option value="ПДД">ПДД</option>
+                            <option value="ФЗ">ФЗ</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] text-gray-500 mb-1 uppercase">ФЗ (если есть)</label>
+                        <input type="text" id="edit-law-group" placeholder="Напр. О полиции" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg p-2 text-white text-xs outline-none">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] text-gray-500 mb-1 uppercase">Название</label>
+                    <input type="text" id="edit-title" placeholder="Статья 1.1..." class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg p-2 text-white text-xs outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] text-gray-500 mb-1 uppercase">Текст / Формулировка</label>
+                    <textarea id="edit-content" rows="3" placeholder="Описание нарушения..." class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg p-2 text-white text-xs outline-none resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="block text-[10px] text-gray-500 mb-1 uppercase">Наказание</label>
+                    <input type="text" id="edit-punishment" placeholder="Штраф / Срок..." class="w-full bg-[#1a1a1a] border border-gray-700 rounded-lg p-2 text-white text-xs outline-none">
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <button onclick="saveArticle()" class="flex-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-2 rounded-lg text-xs transition-colors">Сохранить</button>
+                    <button onclick="resetForm()" class="flex-1 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 text-white py-2 rounded-lg text-xs transition-colors">Сбросить</button>
+                </div>
+            </div>
+
+            <div class="font-bold text-gray-500 text-xs uppercase tracking-wider mb-2">Существующие записи:</div>
+            <div id="settings-list" class="space-y-2"></div>
+        </div>
+    </div>
+
+    <script>
+        // БАЗА ДАННЫХ
+        let articles = [
+            { id: 1, title: "Статья 1.1. Нанесение побоев", content: "Умышленное причинение телесных повреждений, не повлекших кратковременного расстройства здоровья.", punishment: "Лишение свободы на срок до 2 лет", category: "УК", lawGroup: "" },
+            { id: 2, title: "Статья 1.2. Вооруженное нападение", content: "Нападение с использованием огнестрельного или холодного оружия.", punishment: "Лишение свободы на срок до 6 лет", category: "УК", lawGroup: "" },
+            { id: 3, title: "Статья 2.1. Хулиганство", content: "Грубое нарушение общественного порядка.", punishment: "Штраф до 30 000 рублей", category: "КоАП", lawGroup: "" },
+            { id: 4, title: "Статья 1. Права полиции", content: "Полиция имеет право проверять документы граждан, если имеются данные, дающие основания подозревать их в совершении преступления.", punishment: "", category: "ФЗ", lawGroup: "ФЗ О полиции" }
+        ];
+
+        let currentTab = 'УК';
+        let editingId = null;
+
+        // Элементы
+        const viewMode = document.getElementById('view-mode');
+        const articleMode = document.getElementById('article-mode');
+        const settingsMode = document.getElementById('settings-mode');
+        const btnSettings = document.getElementById('btn-settings');
+        const tabs = document.querySelectorAll('.nav-tab');
+
+        // Уведомления
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.innerText = (isError ? "⚠️ " : "✅ ") + msg;
+            toast.className = `fixed top-4 left-1/2 transform -translate-x-1/2 px-4 py-2 rounded-full shadow-lg z-50 transition-all duration-300 text-sm whitespace-nowrap ${isError ? 'bg-red-600' : 'bg-emerald-600'} text-white`;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translate(-50%, -20px)';
+            }, 2500);
+        }
+
+        // Вкладки
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                currentTab = tab.getAttribute('data-cat');
+                renderList();
+            });
+        });
+
+        // Отрисовка списка для чтения
+        function renderList(query = '') {
+            const list = document.getElementById('articles-list');
+            const filtered = articles.filter(a => {
+                const matchTab = a.category === currentTab;
+                const matchQuery = a.title.toLowerCase().includes(query.toLowerCase()) || a.content.toLowerCase().includes(query.toLowerCase());
+                return matchTab && matchQuery;
+            });
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="text-center text-gray-500 text-sm mt-8">Ничего не найдено</div>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(a => {
+                const prefix = a.lawGroup ? `<span class="text-blue-500 font-bold mr-1">[${a.lawGroup}]</span>` : '';
+                return `
+                <div onclick="openArticle(${a.id})" class="border border-gray-700 bg-[#222] rounded-xl p-4 flex justify-between items-center text-blue-200 text-sm active:scale-95 transition-transform cursor-pointer shadow-sm">
+                    <div class="truncate pr-2">${prefix}${a.title}</div>
+                    <div class="text-gray-500 text-xs">▶</div>
+                </div>
+            `}).join('');
+        }
+
+        // Открытие статьи
+        window.openArticle = function(id) {
+            const a = articles.find(x => x.id === id);
+            if(!a) return;
+            
+            document.getElementById('article-title').innerText = (a.lawGroup ? `[${a.lawGroup}] ` : '') + a.title;
+            document.getElementById('article-content').innerText = a.content;
+            
+            const punBlock = document.getElementById('article-punishment');
+            if (a.punishment) {
+                punBlock.classList.remove('hidden');
+                document.getElementById('article-punishment-text').innerText = a.punishment;
+            } else {
+                punBlock.classList.add('hidden');
+            }
+
+            viewMode.classList.add('hidden');
+            viewMode.classList.remove('flex');
+            articleMode.classList.remove('hidden');
+            articleMode.classList.add('flex');
+        };
+
+        window.closeArticle = function() {
+            articleMode.classList.add('hidden');
+            articleMode.classList.remove('flex');
+            viewMode.classList.remove('hidden');
+            viewMode.classList.add('flex');
+        };
+
+        // Поиск
+        document.getElementById('searchInput').addEventListener('input', (e) => renderList(e.target.value));
+
+        // НАСТРОЙКИ / РЕДАКТОР
+        window.toggleSettings = function() {
+            const isSettings = !settingsMode.classList.contains('hidden');
+            if (isSettings) {
+                // Закрываем настройки
+                settingsMode.classList.add('hidden');
+                settingsMode.classList.remove('flex');
+                viewMode.classList.remove('hidden');
+                viewMode.classList.add('flex');
+                btnSettings.innerText = '⚙️';
+                renderList();
+            } else {
+                // Открываем настройки
+                viewMode.classList.add('hidden');
+                viewMode.classList.remove('flex');
+                articleMode.classList.add('hidden');
+                articleMode.classList.remove('flex');
+                settingsMode.classList.remove('hidden');
+                settingsMode.classList.add('flex');
+                btnSettings.innerText = '👁️';
+                renderSettingsList();
+                resetForm();
+            }
+        };
+
+        window.resetForm = function() {
+            editingId = null;
+            document.getElementById('form-title').innerText = "Новая статья";
+            document.getElementById('edit-title').value = "";
+            document.getElementById('edit-content').value = "";
+            document.getElementById('edit-punishment').value = "";
+            document.getElementById('edit-law-group').value = "";
+            document.getElementById('edit-category').value = currentTab;
+        };
+
+        window.saveArticle = function() {
+            const title = document.getElementById('edit-title').value.trim();
+            const content = document.getElementById('edit-content').value.trim();
+            const punishment = document.getElementById('edit-punishment').value.trim();
+            const category = document.getElementById('edit-category').value;
+            const lawGroup = document.getElementById('edit-law-group').value.trim();
+
+            if (!title || !content) {
+                showToast("Заполните название и текст!", true);
+                return;
+            }
+
+            if (editingId) {
+                const idx = articles.findIndex(a => a.id === editingId);
+                if(idx !== -1) {
+                    articles[idx] = { id: editingId, title, content, punishment, category, lawGroup };
+                    showToast("Статья обновлена");
+                }
+            } else {
+                articles.push({ id: Date.now(), title, content, punishment, category, lawGroup });
+                showToast("Статья добавлена");
+            }
+            
+            resetForm();
+            renderSettingsList();
+        };
+
+        window.startEdit = function(id) {
+            const a = articles.find(x => x.id === id);
+            if(!a) return;
+            editingId = a.id;
+            document.getElementById('form-title').innerText = "Редактирование статьи";
+            document.getElementById('edit-title').value = a.title;
+            document.getElementById('edit-content').value = a.content;
+            document.getElementById('edit-punishment').value = a.punishment;
+            document.getElementById('edit-law-group').value = a.lawGroup;
+            document.getElementById('edit-category').value = a.category;
+            showToast("Выбрано для изменения");
+        };
+
+        window.deleteArticle = function(id) {
+            articles = articles.filter(x => x.id !== id);
+            if (editingId === id) resetForm();
+            renderSettingsList();
+            showToast("Удалено", true);
+        };
+
+        function renderSettingsList() {
+            const list = document.getElementById('settings-list');
+            list.innerHTML = articles.map(a => `
+                <div class="bg-[#222] border border-gray-700 p-2.5 rounded-lg flex justify-between items-center text-xs">
+                    <div class="truncate flex-1 pr-2">
+                        <span class="text-blue-500 font-bold">[${a.category}]</span> ${a.title}
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="startEdit(${a.id})" class="text-blue-400 text-lg">🖊️</button>
+                        <button onclick="deleteArticle(${a.id})" class="text-red-500 text-lg">❌</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Старт
+        renderList();
+    </script>
+</body>
+</html>
+
+
+```
